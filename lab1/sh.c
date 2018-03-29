@@ -180,6 +180,8 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 		 return 1; // No command in argv
 	 }
 
+	 printf(token);
+
 	 //const char* command;
 
 	 //simple ls case
@@ -190,38 +192,46 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 	// 	 printf(temp->data);
 	// 	 temp = temp->succ;
 	//  }
-	 //snprintf(command, strlen(argv[0]), "%s", argv[0])
 	 list_t* path = path_dir_list;
+	 int accessCheck;
+	 char* chosenPath;
 	 do {
-		 //char* command = "/" + argv[0];
-		 //access();
-		 printf("%s\n", (char*)path->data);
+		 char commandPath[256];
+		 snprintf(commandPath, sizeof(commandPath), "%s%s%s", (char*)path->data, "/", argv[0]);
+		 accessCheck = access(commandPath, F_OK|R_OK|X_OK);
+
+		 if(accessCheck == 0){
+			 chosenPath = commandPath;
+			 break;
+		 }
 		 path = path->succ;
+
+		 //  printf("%s\n", commandPath);
+		 //  printf("AccessCheck: %d\n", accessCheck);
 	 } while (path != path_dir_list);
 
+	 if(accessCheck < 0){
+		 fprintf(stderr, "Unrecognized command.\n");
+		 return 1;
+	 }
 
-	// else /* default: */
-	// 	{
-	// 		fprintf(stderr, "Unrecognized command.\n");
-	// 		return 1;
-	// 	}
+	 printf("Path to use is: %s\n", chosenPath);
 
 	 pid_t pid;
 
 	 pid = fork();
 
 	 if(pid < 0){
-		 fprintf(stderr, "Fork Failed"); //stderr directly to terminal
+		 fprintf(stderr, "Fork Failed\n"); //stderr directly to terminal
 		 return 1;
 	 }
 	 else if(pid == 0){
-			//execv("/bin/ls", argv);
-			printf("Doing stuffs");
+			execv(chosenPath, argv);
 	 }
 	 else{
 		 int status;
 		 waitpid(pid, status, 0);
-		 printf("Child finished");
+		 printf("Child finished\n");
 	 }
 
 
