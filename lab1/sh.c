@@ -180,10 +180,31 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 		 return 1; // No command in argv
 	 }
 
-	 const char* command;
+	 //const char* command;
 
 	 //simple ls case
-	 snprintf(command, strlen(argv[0]), "%s", argv[0]);
+	 //snprintf(command, strlen(argv[0]), "%s", argv[0]);
+	 list_t* temp = path_dir_list;
+
+	//  while (temp->data) {
+	// 	 printf(temp->data);
+	// 	 temp = temp->succ;
+	//  }
+	 //snprintf(command, strlen(argv[0]), "%s", argv[0])
+	 list_t* path = path_dir_list;
+	 do {
+		 //char* command = "/" + argv[0];
+		 //access();
+		 printf("%s\n", (char*)path->data);
+		 path = path->succ;
+	 } while (path != path_dir_list);
+
+
+	// else /* default: */
+	// 	{
+	// 		fprintf(stderr, "Unrecognized command.\n");
+	// 		return 1;
+	// 	}
 
 	 pid_t pid;
 
@@ -194,15 +215,8 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 		 return 1;
 	 }
 	 else if(pid == 0){
-		 if (strcmp(command, "ls") == 0) /*ls case */
-			{
-			  execv("/bin/ls", command);
-			}
-			else /* default: */
-			{
-				fprintf(stderr, "Unrecognized command.\n");
-				return 1;
-			}
+			//execv("/bin/ls", argv);
+			printf("Doing stuffs");
 	 }
 	 else{
 		 int status;
