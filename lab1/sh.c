@@ -200,14 +200,15 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 		 snprintf(commandPath, sizeof(commandPath), "%s%s%s", (char*)path->data, "/", argv[0]);
 		 accessCheck = access(commandPath, F_OK|R_OK|X_OK);
 
+		//  printf("%s\n", commandPath);
+		//  printf("AccessCheck: %d\n", accessCheck);
+
 		 if(accessCheck == 0){
 			 chosenPath = commandPath;
 			 break;
 		 }
 		 path = path->succ;
 
-		 //  printf("%s\n", commandPath);
-		 //  printf("AccessCheck: %d\n", accessCheck);
 	 } while (path != path_dir_list);
 
 	 if(accessCheck < 0){
@@ -226,6 +227,17 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 		 return 1;
 	 }
 	 else if(pid == 0){
+		 if(input_fd != 0){
+			 close(0);
+			 if(dup2(input_fd, 0) == -1){
+				 error("Cannot duplicate file descriptor.");
+			 }
+		 }else if(output_fd != 0){
+			 close(1);
+			 if(dup2(output_fd, 1) == -1){
+				 error("Cannot duplicate file descriptor.");
+			 }
+		 }
 			execv(chosenPath, argv);
 	 }
 	 else{
@@ -293,6 +305,19 @@ void parse_line(void)
 
 		case PIPE:
 			doing_pipe = true;
+			type = gettoken(&argv[argc]);
+			if (type != NORMAL) {
+				error("expected command name: but found %s",
+					argv[argc]);
+				return;
+			}
+			dup2(pipe_fd[1], output_fd);
+			dup2(pipe_fd[0], input_fd);
+
+			/*After output from one command has been piped. Close stuff.
+			* Then when next command is executed, check doing_pipe,
+			* if it is true, read from pipe and close. Set doing_pipe to false.
+				*/
 
 			/*FALLTHROUGH*/
 

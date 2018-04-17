@@ -1,0 +1,9 @@
+file.txt
+list.c
+list.h
+list.o
+makefile
+sh
+sh.c
+sh.h
+sh.o
