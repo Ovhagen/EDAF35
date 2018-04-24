@@ -180,7 +180,7 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 		 return 1; // No command in argv
 	 }
 
-	 printf("Token: %s\n", token);
+	//  printf("Token: %s\n", token);
 	//  printf();
 
 	 //const char* command;
@@ -228,20 +228,23 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 		 return 1;
 	 }
 	 else if(pid == 0){
+		 printf("input_fd: %d, output_fd: %d\n", input_fd, output_fd);
 		 if(input_fd != 0){
 			 //close(0);
-			 if(dup2(input_fd, 0) == -1){
+			 if(dup2(input_fd, STDIN_FILENO) == -1){
 				 error("Cannot duplicate input file descriptor.");
 			 }
 		 }else if(output_fd != 0){
 			 //close(1);
-			 if(dup2(output_fd, 1) == -1){
+			 if(dup2(output_fd, STDOUT_FILENO) == -1){
 				 error("Cannot duplicate output file descriptor.");
 			 }
 		 }
 		 execv(chosenPath, argv);
+		 exit(0);
 	 }
-	 else if (!doing_pipe){
+	//  else if (!doing_pipe){
+	else{
 		 int status;
 		 waitpid(pid, status, 0);
 		 printf("Child finished\n");
@@ -306,12 +309,14 @@ void parse_line(void)
 
 		case PIPE:
 			doing_pipe = true;
+			printf("IS PIPE\n");
 			type = gettoken(&argv[argc]);
 			if (type != NORMAL) {
 				error("expected command name: but found %s",
 					argv[argc]);
 				return;
-			}
+			}			run_program(argv, argc, foreground, doing_pipe);
+
 
 			if (pipe(pipe_fd) == -1)
  			{
@@ -319,12 +324,19 @@ void parse_line(void)
 			 return 1;
  			}
 
-			dup2(pipe_fd[1], output_fd);
+			printf("pipe_fd[0]: %d, pipe_fd[1]: %d,  \n", pipe_fd[0], pipe_fd[0]);
+			output_fd = pipe_fd[1];
 
 			argv[argc] = NULL;
 			run_program(argv, argc, foreground, doing_pipe);
 
-			dup2(pipe_fd[0], input_fd);
+			argv = [MAX_ARG + 1]
+			argc = 0;
+
+			output_fd = 0;
+
+			input_fd = pipe_fd[0];
+			// printf("input_fd: %d, output_fd: %d\n", input_fd, output_fd);
 			/*After output from one command has been piped. Close stuff.
 			* Then when next command is executed, check doing_pipe,
 			* if it is true, read from pipe and close.
