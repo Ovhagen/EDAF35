@@ -180,7 +180,8 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 		 return 1; // No command in argv
 	 }
 
-	 printf(token);
+	 printf("Token: %s\n", token);
+	//  printf();
 
 	 //const char* command;
 
@@ -228,19 +229,19 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 	 }
 	 else if(pid == 0){
 		 if(input_fd != 0){
-			 close(0);
+			 //close(0);
 			 if(dup2(input_fd, 0) == -1){
-				 error("Cannot duplicate file descriptor.");
+				 error("Cannot duplicate input file descriptor.");
 			 }
 		 }else if(output_fd != 0){
-			 close(1);
+			 //close(1);
 			 if(dup2(output_fd, 1) == -1){
-				 error("Cannot duplicate file descriptor.");
+				 error("Cannot duplicate output file descriptor.");
 			 }
 		 }
-			execv(chosenPath, argv);
+		 execv(chosenPath, argv);
 	 }
-	 else{
+	 else if (!doing_pipe){
 		 int status;
 		 waitpid(pid, status, 0);
 		 printf("Child finished\n");
@@ -311,16 +312,26 @@ void parse_line(void)
 					argv[argc]);
 				return;
 			}
-			dup2(pipe_fd[1], output_fd);
-			dup2(pipe_fd[0], input_fd);
 
+			if (pipe(pipe_fd) == -1)
+ 			{
+			 fprintf(stderr, "Pipe Failed" );
+			 return 1;
+ 			}
+
+			dup2(pipe_fd[1], output_fd);
+
+			argv[argc] = NULL;
+			run_program(argv, argc, foreground, doing_pipe);
+
+			dup2(pipe_fd[0], input_fd);
 			/*After output from one command has been piped. Close stuff.
 			* Then when next command is executed, check doing_pipe,
-			* if it is true, read from pipe and close. Set doing_pipe to false.
+			* if it is true, read from pipe and close.
 				*/
 
 			/*FALLTHROUGH*/
-
+			break;
 		case AMPERSAND:
 			foreground = false;
 
