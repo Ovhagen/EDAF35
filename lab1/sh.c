@@ -176,23 +176,13 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 	 *
 	 *
 	 */
-	 if(argc == 0){
-		 return 1; // No command in argv
-	 }
 
 	//  printf("Token: %s\n", token);
 	//  printf();
 
 	 //const char* command;
 
-	 //simple ls case
-	 //snprintf(command, strlen(argv[0]), "%s", argv[0]);
-	 list_t* temp = path_dir_list;
-
-	//  while (temp->data) {
-	// 	 printf(temp->data);
-	// 	 temp = temp->succ;
-	//  }
+	 printf("Read command: %s\n", argv[0]);
 	 list_t* path = path_dir_list;
 	 int accessCheck;
 	 char* chosenPath;
@@ -200,9 +190,8 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 		 char commandPath[256];
 		 snprintf(commandPath, sizeof(commandPath), "%s%s%s", (char*)path->data, "/", argv[0]);
 		 accessCheck = access(commandPath, F_OK|R_OK|X_OK);
-
-		//  printf("%s\n", commandPath);
-		//  printf("AccessCheck: %d\n", accessCheck);
+		 //  printf("%s\n", commandPath);
+		 //  printf("AccessCheck: %d\n", accessCheck);
 
 		 if(accessCheck == 0){
 			 chosenPath = commandPath;
@@ -217,209 +206,186 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 		 return 1;
 	 }
 
-	 printf("Path to use is: %s\n", chosenPath);
+	//  printf("Path to use is: %s\n", chosenPath);
 
 	 pid_t pid;
-
 	 pid = fork();
-
 	 if(pid < 0){
 		 fprintf(stderr, "Fork Failed\n"); //stderr directly to terminal
 		 return 1;
 	 }
 	 else if(pid == 0){
-		 printf("input_fd: %d, output_fd: %d\n", input_fd, output_fd);
-		 if(input_fd != 0){
-			 //close(0);
-			 if(dup2(input_fd, STDIN_FILENO) == -1){
-				 error("Cannot duplicate input file descriptor.");
-			 }
-		 }else if(output_fd != 0){
-			 //close(1);
-			 if(dup2(output_fd, STDOUT_FILENO) == -1){
-				 error("Cannot duplicate output file descriptor.");
-			 }
-		 }
+		 printf("Child started");
+		 dup2(input_fd, 0);
+		 dup2(output_fd, 1);
 		 execv(chosenPath, argv);
+
 		 exit(0);
 	 }
-	//  else if (!doing_pipe){
-	else{
-		 int status;
-		 waitpid(pid, status, 0);
-		 printf("Child finished\n");
+	 //  else if (!doing_pipe){
+	 else{
+		 if(foreground){
+			 int status;
+			 waitpid(pid, status, 0);
+			 printf("Child finished\n");
+		 }else{
+			 printf("Not waiting for child.\n");
+		 }
 	 }
 
 
-}
+ }
 
-void parse_line(void)
-{
-	char*		argv[MAX_ARG + 1];
-	int		argc;
-	int		pipe_fd[2];	/* 1 for producer and 0 for consumer. */
-	token_type_t	type;
-	bool		foreground;
-	bool		doing_pipe;
+ void parse_line(void)
+ {
+	 char*		argv[MAX_ARG + 1];
+	 int		argc;
+	 int		pipe_fd[2];	/* 1 for producer and 0 for consumer. */
+	 token_type_t	type;
+	 bool		foreground;
+	 bool		doing_pipe;
 
-	input_fd	= 0;
-	output_fd	= 0;
-	argc		= 0;
+	 input_fd	= 0;
+	 output_fd	= 1;
+	 argc		= 0;
 
-	for (;;) {
+	 for (;;) {
 
-		foreground	= true;
-		doing_pipe	= false;
+		 foreground	= true;
+		 doing_pipe	= false;
 
-		type = gettoken(&argv[argc]);
+		 type = gettoken(&argv[argc]);
 
-		switch (type) {
-		case NORMAL:
-			argc += 1;
-			break;
+		 switch (type) {
+			 case NORMAL:
+			 argc += 1;
+			 break;
 
-		case INPUT:
-			type = gettoken(&argv[argc]);
-			if (type != NORMAL) {
-				error("expected file name: but found %s",
-					argv[argc]);
-				return;
-			}
+			 case INPUT:
+			 type = gettoken(&argv[argc]);
+			 if (type != NORMAL) {
+				 error("expected file name: but found %s",
+				 argv[argc]);
+				 return;
+			 }
 
-			input_fd = open(argv[argc], O_RDONLY);
+			 input_fd = open(argv[argc], O_RDONLY);
 
-			if (input_fd < 0)
-				error("cannot read from %s", argv[argc]);
+			 if (input_fd < 0)
+			 error("cannot read from %s", argv[argc]);
 
-			break;
+			 break;
 
-		case OUTPUT:
-			type = gettoken(&argv[argc]);
-			if (type != NORMAL) {
-				error("expected file name: but found %s",
-					argv[argc]);
-				return;
-			}
+			 case OUTPUT:
+			 type = gettoken(&argv[argc]);
+			 if (type != NORMAL) {
+				 error("expected file name: but found %s",
+				 argv[argc]);
+				 return;
+			 }
 
-			output_fd = open(argv[argc], O_CREAT | O_WRONLY, PERM);
+			 output_fd = open(argv[argc], O_CREAT | O_WRONLY, PERM);
 
-			if (output_fd < 0)
-				error("cannot write to %s", argv[argc]);
-			break;
+			 if (output_fd < 0)
+			 error("cannot write to %s", argv[argc]);
+			 break;
 
-		case PIPE:
-			doing_pipe = true;
-			printf("IS PIPE\n");
-			type = gettoken(&argv[argc]);
-			if (type != NORMAL) {
-				error("expected command name: but found %s",
-					argv[argc]);
-				return;
-			}			run_program(argv, argc, foreground, doing_pipe);
+			 case PIPE:
+			 doing_pipe = true;
+			 printf("IS PIPE\n");
+
+			 if (pipe(pipe_fd) == -1)
+			 {
+				 fprintf(stderr, "Pipe Failed" );
+				 return 1;
+			 }
+
+			//  printf("pipe_fd[0]: %d, pipe_fd[1]: %d  \n", pipe_fd[0], pipe_fd[1]);
+			 output_fd = pipe_fd[1];
 
 
-			if (pipe(pipe_fd) == -1)
- 			{
-			 fprintf(stderr, "Pipe Failed" );
-			 return 1;
- 			}
+			 /*FALLTHROUGH*/ /*No breaking...*/
+			 case AMPERSAND:
+			 foreground = false;
 
-			printf("pipe_fd[0]: %d, pipe_fd[1]: %d,  \n", pipe_fd[0], pipe_fd[0]);
-			output_fd = pipe_fd[1];
+			 /*FALLTHROUGH*/
 
-			argv[argc] = NULL;
-			run_program(argv, argc, foreground, doing_pipe);
+			 case NEWLINE:
+			 case SEMICOLON:
 
-			argv = [MAX_ARG + 1]
-			argc = 0;
+			 if (argc == 0)
+			 return;
 
-			output_fd = 0;
+			 argv[argc] = NULL;
 
-			input_fd = pipe_fd[0];
-			// printf("input_fd: %d, output_fd: %d\n", input_fd, output_fd);
-			/*After output from one command has been piped. Close stuff.
-			* Then when next command is executed, check doing_pipe,
-			* if it is true, read from pipe and close.
-				*/
+			 run_program(argv, argc, foreground, doing_pipe);
 
-			/*FALLTHROUGH*/
-			break;
-		case AMPERSAND:
-			foreground = false;
+			 input_fd	= 0;
+			 output_fd	= 1;
+			 argc		= 0;
 
-			/*FALLTHROUGH*/
+			 if(doing_pipe){
+				 input_fd = pipe_fd[0];
+				 close(pipe_fd[1]);
+			 }
 
-		case NEWLINE:
-		case SEMICOLON:
+			 if (type == NEWLINE)
+			 return;
 
-			if (argc == 0)
-				return;
+			 break;
+		 }
+	 }
+ }
 
-			argv[argc] = NULL;
+ /* init_search_path: make a list of directories to look for programs in. */
+ static void init_search_path(void)
+ {
+	 char*		dir_start;
+	 char*		path;
+	 char*		s;
+	 list_t*		p;
+	 bool		proceed;
 
-			run_program(argv, argc, foreground, doing_pipe);
+	 path = getenv("PATH");
 
-			input_fd	= 0;
-			output_fd	= 0;
-			argc		= 0;
-
-			if (type == NEWLINE)
-				return;
-
-			break;
-		}
-	}
-}
-
-/* init_search_path: make a list of directories to look for programs in. */
-static void init_search_path(void)
-{
-	char*		dir_start;
-	char*		path;
-	char*		s;
-	list_t*		p;
-	bool		proceed;
-
-	path = getenv("PATH");
-
-	/* path may look like "/bin:/usr/bin:/usr/local/bin"
+	 /* path may look like "/bin:/usr/bin:/usr/local/bin"
 	 * and this function makes a list with strings
 	 * "/bin" "usr/bin" "usr/local/bin"
- 	 *
+	 *
 	 */
 
-	dir_start = malloc(1+strlen(path));
-	if (dir_start == NULL) {
-		error("out of memory.");
-		exit(1);
-	}
+	 dir_start = malloc(1+strlen(path));
+	 if (dir_start == NULL) {
+		 error("out of memory.");
+		 exit(1);
+	 }
 
-	strcpy(dir_start, path);
+	 strcpy(dir_start, path);
 
-	path_dir_list = NULL;
+	 path_dir_list = NULL;
 
-	if (path == NULL || *path == 0) {
-		path_dir_list = new_list("");
-		return;
-	}
+	 if (path == NULL || *path == 0) {
+		 path_dir_list = new_list("");
+		 return;
+	 }
 
-	proceed = true;
+	 proceed = true;
 
-	while (proceed) {
-		s = dir_start;
-		while (*s != ':' && *s != 0)
-			s++;
-		if (*s == ':')
-			*s = 0;
-		else
-			proceed = false;
+	 while (proceed) {
+		 s = dir_start;
+		 while (*s != ':' && *s != 0)
+		 s++;
+		 if (*s == ':')
+		 *s = 0;
+		 else
+		 proceed = false;
 
-		insert_last(&path_dir_list, dir_start);
+		 insert_last(&path_dir_list, dir_start);
 
-		dir_start = s + 1;
-	}
+		 dir_start = s + 1;
+	 }
 
-	p = path_dir_list;
+	 p = path_dir_list;
 
 	if (p == NULL)
 		return;
