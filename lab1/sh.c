@@ -35,6 +35,7 @@ static char*	token;			/* a token such as /bin/ls */
 static list_t*	path_dir_list;		/* list of directories in PATH. */
 static int	input_fd;		/* for i/o redirection or pipe. */
 static int	output_fd;		/* for i/o redirection or pipe */
+static char* previous_wd;
 
 /* fetch_line: read one line from user and put it in input_buf. */
 int fetch_line(char* prompt)
@@ -186,27 +187,43 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 	 list_t* path = path_dir_list;
 	 int accessCheck;
 	 char* chosenPath;
-	 do {
-		 char commandPath[256];
-		 snprintf(commandPath, sizeof(commandPath), "%s%s%s", (char*)path->data, "/", argv[0]);
-		 accessCheck = access(commandPath, F_OK|R_OK|X_OK);
-		 //  printf("%s\n", commandPath);
-		 //  printf("AccessCheck: %d\n", accessCheck);
-
-		 if(accessCheck == 0){
-			 chosenPath = commandPath;
-			 break;
+	 if(strcmp(argv[0], "cd") == 0){
+		 printf("cd!!");
+		 if(strcmp(argv[1], "-")== 0){
+			 chdir(previous_wd);
+			 return 1;
 		 }
-		 path = path->succ;
+		 if(chdir(argv[1])){
+			 previous_wd = argv[1];
+			 return 1;
+		 }else{
+			 fprintf(stderr, "Could not change directory.\n");
+			 return 1;
+		 }
+	 }else{
+		 do {
+			 char commandPath[256];
+			 snprintf(commandPath, sizeof(commandPath), "%s%s%s", (char*)path->data, "/", argv[0]);
+			 accessCheck = access(commandPath, F_OK|R_OK|X_OK);
+			 //  printf("%s\n", commandPath);
+			 //  printf("AccessCheck: %d\n", accessCheck);
 
-	 } while (path != path_dir_list);
+			 if(accessCheck == 0){
+				 chosenPath = commandPath;
+				 break;
+			 }
+			 path = path->succ;
 
-	 if(accessCheck < 0){
-		 fprintf(stderr, "Unrecognized command.\n");
-		 return 1;
+		 } while (path != path_dir_list);
+
+		 if(accessCheck < 0){
+			 fprintf(stderr, "Unrecognized command.\n");
+			 return 1;
+		 }
+		 //  printf("Path to use is: %s\n", chosenPath);
 	 }
 
-	//  printf("Path to use is: %s\n", chosenPath);
+
 
 	 pid_t pid;
 	 pid = fork();
@@ -232,7 +249,6 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 			 printf("Not waiting for child.\n");
 		 }
 	 }
-
 
  }
 
