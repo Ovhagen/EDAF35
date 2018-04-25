@@ -178,27 +178,47 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 	 *
 	 */
 
-	//  printf("Token: %s\n", token);
-	//  printf();
-
-	 //const char* command;
-
-	 printf("Read command: %s\n", argv[0]);
 	 list_t* path = path_dir_list;
 	 int accessCheck;
 	 char* chosenPath;
 	 if(strcmp(argv[0], "cd") == 0){
-		 printf("cd!!");
-		 if(strcmp(argv[1], "-")== 0){
-			 chdir(previous_wd);
-			 return 1;
+
+		 if(argc < 2){
+			 previous_wd = get_current_dir_name();
+			char* homedir = getenv("HOME");
+			 if(chdir(homedir) == 0){
+				 return 1;
+			 }else{
+				 fprintf(stderr, "Could not change directory.\n");
+				 return 1;
+			 }
 		 }
-		 if(chdir(argv[1])){
-			 previous_wd = argv[1];
-			 return 1;
-		 }else{
-			 fprintf(stderr, "Could not change directory.\n");
-			 return 1;
+
+		 else if(strcmp(argv[1], "-")== 0){
+			 if(previous_wd == NULL){
+				 fprintf(stderr, "OLDPWD not set.\n");
+				 return 1;
+			 }
+			 char* current_wd = get_current_dir_name();
+			//  printf("current_wd: %s", current_wd);
+			 if(chdir(previous_wd) == 0){
+				 previous_wd = current_wd;
+				 return 1;
+			 }else{
+				 fprintf(stderr, "Could not change directory.\n");
+				 return 1;
+			 }
+		 }
+
+		 else{
+			 previous_wd = get_current_dir_name();
+			//  printf("Previous dir %s saved\n", previous_wd);
+			 if(chdir(argv[1]) == 0){
+				 return 1;
+			 }else{
+				 fprintf(stderr, "Could not change directory.\n");
+				 return 1;
+			 }
 		 }
 	 }else{
 		 do {
