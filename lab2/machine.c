@@ -125,6 +125,7 @@ static void read_page(unsigned phys_page, unsigned swap_page)
 		PAGESIZE * sizeof(unsigned));
 }
 
+/*Kopiera en ramminnes sida till minnet*/
 static void write_page(unsigned phys_page, unsigned swap_page)
 {
 	memcpy(&swap[swap_page * PAGESIZE],
@@ -147,7 +148,23 @@ static unsigned fifo_page_replace()
 
 	page = INT_MAX;
 
+	printf("RAM_PAGES: %d\n", RAM_PAGES);
+
+	printf("page: %d\n", page);
+
+	printf("Pagesize: %d\n", PAGESIZE);
+
 	assert(page < RAM_PAGES);
+
+	//Not on disk
+	//new_swap_page
+	//write_page
+
+	//on disk re-use previous swap page
+	//coremap idx should have page?
+	//read page
+
+	return page;
 }
 
 static unsigned second_chance_replace()
@@ -163,11 +180,12 @@ static unsigned take_phys_page()
 {
 	unsigned		page;	/* Page to be replaced. */
 
-	page = (*replace)();
+	page = (*replace)(); //Mata in funktion som input?
 
 	return page;
 }
 
+/*A page fault happens when there is no entry in virtual memory.*/
 static void pagefault(unsigned virt_page)
 {
 	unsigned		page;
@@ -185,6 +203,10 @@ static void translate(unsigned virt_addr, unsigned* phys_addr, bool write)
 	virt_page = virt_addr / PAGESIZE;
 	offset = virt_addr & (PAGESIZE - 1);
 
+	/* A page fault happens when page is not in RAM but on disk.
+	* Calls on pagefault which calls on take_phys_page
+	* which uses the replace variable set in the beginning.
+	*/
 	if (!page_table[virt_page].inmemory)
 		pagefault(virt_page);
 
@@ -193,6 +215,7 @@ static void translate(unsigned virt_addr, unsigned* phys_addr, bool write)
 	if (write)
 		page_table[virt_page].modified = 1;
 
+	/*Translate virt_addr to phys_addr*/
 	*phys_addr = page_table[virt_page].page * PAGESIZE + offset;
 }
 
@@ -285,7 +308,7 @@ int run(int argc, char** argv)
 	if (argc > 1)
 		file = argv[1];
 	else
-		file = "a.s";
+		file = "fac.s";
 
 	read_program(file, memory, &ninstr);
 

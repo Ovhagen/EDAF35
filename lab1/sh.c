@@ -259,14 +259,13 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 
 		 exit(0);
 	 }
-	 //  else if (!doing_pipe){
 	 else{
 		 if(foreground){
 			 int status;
 			 waitpid(pid, status, 0);
-			 printf("Child finished\n");
+			//  printf("Child finished\n");
 		 }else{
-			 printf("Not waiting for child.\n");
+			//  printf("Not waiting for child.\n");
 		 }
 	 }
 
