@@ -14,6 +14,7 @@
 #define RAM_SIZE	(RAM_PAGES * PAGESIZE)
 #define SWAP_PAGES	(128)
 #define SWAP_SIZE	(SWAP_PAGES * PAGESIZE)
+// #define DEBUG
 #undef DEBUG
 
 #define ADD	(0)
@@ -118,6 +119,7 @@ void error(char* fmt, ...)
 	exit(1);
 }
 
+/* Kopiera en SWAPsida på sekundär lagringsmedia till en primärminnessida */
 static void read_page(unsigned phys_page, unsigned swap_page)
 {
 	memcpy(&memory[phys_page * PAGESIZE],
@@ -125,7 +127,7 @@ static void read_page(unsigned phys_page, unsigned swap_page)
 		PAGESIZE * sizeof(unsigned));
 }
 
-/*Kopiera en ramminnes sida till minnet*/
+/* Kopiera en primärminnessida till en SWAPsida på sekundär lagringsmedia */
 static void write_page(unsigned phys_page, unsigned swap_page)
 {
 	memcpy(&swap[swap_page * PAGESIZE],
@@ -144,43 +146,78 @@ static unsigned new_swap_page()
 
 static unsigned fifo_page_replace()
 {
-	int	page;
+	static int	page;
 
-	page = INT_MAX;
-
-	printf("RAM_PAGES: %d\n", RAM_PAGES);
-
-	printf("page: %d\n", page);
-
-	printf("Pagesize: %d\n", PAGESIZE);
+	// page = INT_MAX;
+	page = (page + 1) % RAM_PAGES;
 
 	assert(page < RAM_PAGES);
 
-	//Not on disk
-	//new_swap_page
-	//write_page
-
-	//on disk re-use previous swap page
-	//coremap idx should have page?
-	//read page
+	#ifdef DEBUG
+	/*================= DEBUG ==================*/
+	printf("RAM_PAGES: %d\n", RAM_PAGES);
+	printf("Page: %d\n", page);
+	printf("Pagesize: %d\n", PAGESIZE);
+	/*================= DEBUG ==================*/
+	#endif
 
 	return page;
 }
 
 static unsigned second_chance_replace()
 {
-	int	page;
+	static int	page;
 
-	page = INT_MAX;
+	coremap_entry_t* map_entry = &coremap[page];
+
+	int firstPage = page;
+	/* See which page hasn't been referenced */
+	while(map_entry->owner != NULL && map_entry->owner->referenced) {
+
+		page = (page + 1) % RAM_PAGES;
+		map_entry = &coremap[page];
+
+		/* If all pages are referenced, remove the first in the queue */
+		if(firstPage == page) {
+			break;
+		}
+	}
 
 	assert(page < RAM_PAGES);
+
+	return page;
 }
+
 
 static unsigned take_phys_page()
 {
 	unsigned		page;	/* Page to be replaced. */
 
 	page = (*replace)(); //Mata in funktion som input?
+
+	coremap_entry_t* map_entry = &coremap[page];
+
+	//Not on disk
+	//new_swap_page
+	//write_page
+	if(map_entry->owner != NULL){
+		if(map_entry->owner->ondisk){
+			if(map_entry->owner->modified){
+				write_page(page, map_entry->page);
+			}
+			map_entry->owner->page = map_entry->page;
+		} else {
+			unsigned fresh_swap_page = new_swap_page();
+			map_entry->owner->page = fresh_swap_page;
+			write_page(page, fresh_swap_page);
+		}
+
+		map_entry->owner->ondisk = 1;
+		map_entry->owner->modified = 0;
+		map_entry->owner->inmemory = 0;
+		map_entry->owner->referenced = 0;
+
+	}
 
 	return page;
 }
@@ -193,6 +230,22 @@ static void pagefault(unsigned virt_page)
 	num_pagefault += 1;
 
 	page = take_phys_page();
+
+	//on disk re-use previous swap page
+	//coremap idx should have page?
+	//read page
+
+	page_table_entry_t* new_page = &page_table[virt_page];
+
+	if(new_page->ondisk){
+		coremap[page].page = new_page->page;
+		read_page(page, new_page->page);
+	}
+
+	new_page->inmemory = 1;
+	new_page->page = page;
+	coremap[page].owner = new_page;
+
 }
 
 static void translate(unsigned virt_addr, unsigned* phys_addr, bool write)
@@ -312,6 +365,8 @@ int run(int argc, char** argv)
 
 	read_program(file, memory, &ninstr);
 
+	printf("--------------Program read----------------\n");
+
 	/* First instruction to execute is at address 0. */
 	cpu.pc = 0;
 	cpu.reg[0] = 0;
@@ -329,9 +384,19 @@ int run(int argc, char** argv)
 		constant = extract_constant(instr);
 		dest_reg = extract_dest(instr);
 
+		#ifdef DEBUG
+		/*=================== DEBUG ====================*/
+		printf("opcode: %u\n", opcode);
+		printf("source_reg1: %u\n", source_reg1);
+		printf("constant: %u\n", constant);
+		printf("dest_reg: %u\n", dest_reg);
+		/*=================== DEBUG ====================*/
+		#endif
+
 		/* Fetch operands. */
 		source1 = cpu.reg[source_reg1];
 		source2 = cpu.reg[constant & (NREG-1)];
+
 
 		increment_pc = true;
 		writeback = true;
@@ -484,7 +549,7 @@ int run(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
-#if 1
+#if 0
 	replace = fifo_page_replace;
 #else
 	replace = second_chance_replace;
@@ -493,4 +558,6 @@ int main(int argc, char** argv)
 	run(argc, argv);
 
 	printf("%llu page faults\n", num_pagefault);
+
+	return 0;
 }
