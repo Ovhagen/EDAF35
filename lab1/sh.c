@@ -187,26 +187,26 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 			 previous_wd = get_current_dir_name();
 			char* homedir = getenv("HOME");
 			 if(chdir(homedir) == 0){
-				 return 1;
+				 return;
 			 }else{
 				 fprintf(stderr, "Could not change directory.\n");
-				 return 1;
+				 return;
 			 }
 		 }
 
 		 else if(strcmp(argv[1], "-")== 0){
 			 if(previous_wd == NULL){
 				 fprintf(stderr, "OLDPWD not set.\n");
-				 return 1;
+				 return;
 			 }
 			 char* current_wd = get_current_dir_name();
 			//  printf("current_wd: %s", current_wd);
 			 if(chdir(previous_wd) == 0){
 				 previous_wd = current_wd;
-				 return 1;
+				 return;
 			 }else{
 				 fprintf(stderr, "Could not change directory.\n");
-				 return 1;
+				 return;
 			 }
 		 }
 
@@ -214,10 +214,10 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 			 previous_wd = get_current_dir_name();
 			//  printf("Previous dir %s saved\n", previous_wd);
 			 if(chdir(argv[1]) == 0){
-				 return 1;
+				 return;
 			 }else{
 				 fprintf(stderr, "Could not change directory.\n");
-				 return 1;
+				 return;
 			 }
 		 }
 	 }else{
@@ -238,7 +238,7 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 
 		 if(accessCheck < 0){
 			 fprintf(stderr, "Unrecognized command.\n");
-			 return 1;
+			 return;
 		 }
 		 //  printf("Path to use is: %s\n", chosenPath);
 	 }
@@ -249,7 +249,7 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 	 pid = fork();
 	 if(pid < 0){
 		 fprintf(stderr, "Fork Failed\n"); //stderr directly to terminal
-		 return 1;
+		 return;
 	 }
 	 else if(pid == 0){
 		 printf("Child started");
@@ -332,7 +332,7 @@ void run_program(char** argv, int argc, bool foreground, bool doing_pipe)
 			 if (pipe(pipe_fd) == -1)
 			 {
 				 fprintf(stderr, "Pipe Failed" );
-				 return 1;
+				 return;
 			 }
 
 			//  printf("pipe_fd[0]: %d, pipe_fd[1]: %d  \n", pipe_fd[0], pipe_fd[1]);
