@@ -29,12 +29,14 @@
 
 #define min(a,b) ((a)<(b)?(a):(b))
 
+static time_t last_modtime;
+
 // The attributes should come from the directory entry.
 // TODO: [DIR_ENTRY] add last "m"odification time to the entry and handle it properly
 static int do_getattr( const char *path, struct stat *st )
 {
-//	printf( "[getattr] Called\n" );
-//	printf( "\tAttributes of %s requested\n", path );
+	printf( "[getattr] Called\n" );
+	printf( "\tAttributes of %s requested\n", path );
 
 	// GNU's definitions of the attributes (http://www.gnu.org/software/libc/manual/html_node/Attribute-Meanings.html):
 	// 		st_uid: 	The user ID of the file’s owner.
@@ -49,12 +51,17 @@ static int do_getattr( const char *path, struct stat *st )
 	st->st_uid = getuid(); // The owner of the file/directory is the user who mounted the filesystem
 	st->st_gid = getgid(); // The group of the file/directory is the same as the group of the user who mounted the filesystem
 	st->st_atime = time( NULL ); // The last "a"ccess of the file/directory is right now
-	st->st_mtime = time( NULL ); // The last "m"odification of the file/directory is right now
+	// printf("%s\n", "Time failed");
+	// time_t mod_time = 1482580800;
+	time_t mod_time = time( NULL );
+	st->st_mtime = mod_time; // The last "m"odification of the file/directory is right now
 
 	if ( strcmp( path, "/" ) == 0 )
 	{
+		printf("Called root\n");
 		st->st_mode = S_IFDIR | 0755;
 		st->st_nlink = 2; // Why "two" hardlinks instead of "one"? The answer is here: http://unix.stackexchange.com/a/101536
+		st->st_mtime = last_modtime;
 	}
 	else
 	{
@@ -72,6 +79,19 @@ static int do_getattr( const char *path, struct stat *st )
       printf("  -- %d > %.*s\n",di,FS_NAME_LEN,de->name);
 			st->st_size = de->size_bytes;
 			st->st_mode = de->mode;
+			// time_t timer;
+	    // char buffer[26];
+	    // struct tm* tm_info;
+			//
+	    // time(&timer);
+	    // tm_info = localtime(&de->modtime);
+			//
+    	// // strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+			// puts(buffer);
+			st->st_mtime = de->modtime;
+			if(de->modtime > last_modtime){
+				last_modtime = de->modtime;
+			}
 		}
     else {
       printf("  -- find_dir_entry cannot find %s\n",fn);
@@ -194,6 +214,7 @@ static int do_write( const char *path, const char *buffer, size_t size, off_t of
 			}
 			// update the size of the file
 			de->size_bytes = offset + size;
+			de->modtime = time( NULL );
 
 			// flush back the directory, since the file info changed
 			save_directory();
@@ -358,6 +379,7 @@ static int do_create(const char *path, mode_t m, struct fuse_file_info *ffi) {
 	de->mode = m; //S_IFREG | 0644;
 	de->size_bytes = 0;
 	de->first_block = EOF_BLOCK; // end of file block
+	de->modtime = time( NULL ); // SET modtime TO CREATION TIME
 
 	// must save directory changes to disk!
 	save_directory();

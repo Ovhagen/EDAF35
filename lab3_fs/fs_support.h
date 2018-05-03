@@ -63,6 +63,7 @@ typedef struct {
     mode_t mode;
     unsigned long size_bytes;
     unsigned short first_block;
+    time_t modtime;
 } dir_entry;
 
 #define DIR_ENTRIES_PER_BLOCK (BLOCK_SIZE/sizeof(dir_entry))
@@ -84,7 +85,7 @@ int first_empty_dir_entry();
 dir_entry* index2dir_entry(unsigned short);
 void save_directory();
 
-// Working with the block map 
+// Working with the block map
 unsigned short* load_blockmap();
 unsigned short alloc_block();
 unsigned short free_block(unsigned short bid);
