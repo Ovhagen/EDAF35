@@ -75,6 +75,7 @@ typedef struct {
 } coremap_entry_t;
 
 static unsigned long long	num_pagefault;		/* Statistics. */
+static unsigned long long	disk_writes;		/* Statistics. */
 static page_table_entry_t	page_table[NPAGES];	/* OS data structure. */
 static coremap_entry_t		coremap[RAM_PAGES];	/* OS data structure. */
 static unsigned			memory[RAM_SIZE];	/* Hardware: RAM. */
@@ -130,6 +131,7 @@ static void read_page(unsigned phys_page, unsigned swap_page)
 /* Kopiera en primärminnessida till en SWAPsida på sekundär lagringsmedia */
 static void write_page(unsigned phys_page, unsigned swap_page)
 {
+	disk_writes += 1;
 	memcpy(&swap[swap_page * PAGESIZE],
 		&memory[phys_page * PAGESIZE],
 		PAGESIZE * sizeof(unsigned));
@@ -148,7 +150,6 @@ static unsigned fifo_page_replace()
 {
 	static int	page;
 
-	// page = INT_MAX;
 	page = (page + 1) % RAM_PAGES;
 
 	assert(page < RAM_PAGES);
@@ -170,17 +171,20 @@ static unsigned second_chance_replace()
 
 	coremap_entry_t* map_entry = &coremap[page];
 
-	int firstPage = page;
+	// int firstPage = page;
 	/* See which page hasn't been referenced */
 	while(map_entry->owner != NULL && map_entry->owner->referenced) {
+
+		/* This makes it worse */
+		map_entry->owner->referenced = 0;
 
 		page = (page + 1) % RAM_PAGES;
 		map_entry = &coremap[page];
 
 		/* If all pages are referenced, remove the first in the queue */
-		if(firstPage == page) {
-			break;
-		}
+		// if(firstPage == page) {
+		// 	break;
+		// }
 	}
 
 	assert(page < RAM_PAGES);
@@ -558,6 +562,8 @@ int main(int argc, char** argv)
 	run(argc, argv);
 
 	printf("%llu page faults\n", num_pagefault);
+
+	printf("%llu disk writes\n", disk_writes);
 
 	return 0;
 }
