@@ -79,15 +79,6 @@ static int do_getattr( const char *path, struct stat *st )
       printf("  -- %d > %.*s\n",di,FS_NAME_LEN,de->name);
 			st->st_size = de->size_bytes;
 			st->st_mode = de->mode;
-			// time_t timer;
-	    // char buffer[26];
-	    // struct tm* tm_info;
-			//
-	    // time(&timer);
-	    // tm_info = localtime(&de->modtime);
-			//
-    	// // strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
-			// puts(buffer);
 			st->st_mtime = de->modtime;
 			if(de->modtime > last_modtime){
 				last_modtime = de->modtime;
@@ -319,7 +310,7 @@ static int do_truncate(const char *path, off_t offset) {
   } else {
 		// file found! must alter both the Directory
 		// and free the blocks of the file to the free blocks
-		printf("  > file exits. truncate it.");
+		printf("  > file exits. truncate it.\n");
 
 		dir_entry* de = index2dir_entry(di);
 		de->size_bytes = 0;
@@ -331,6 +322,15 @@ static int do_truncate(const char *path, off_t offset) {
 		//	de->first_block = bmap.blockmap[de->first_block];
 		// }
 		// save block map
+
+		// printf("Attempting to truncate the file\n");
+		// unsigned short *bmap = load_blockmap();
+		// while(de->first_block != EOF_BLOCK) {
+		// 	unsigned short next_block = freeBlock(bmap, de->first_block);
+		// 	de->first_block = bmap[next_block];
+		// }
+		// save_blockmap();
+		// printf("Truncated the file\n");
 
 		// for now just cut loose all blocks! block leak!
 		de->first_block = EOF_BLOCK;
@@ -344,6 +344,24 @@ static int do_truncate(const char *path, off_t offset) {
 // TODO: [RENAME] implement this!
 static int do_rename(const char *opath, const char *npath) {
   printf("--> Trying to rename %s to %s\n", opath, npath);
+	// if(strcmp(opath, npath) == 0){
+	// 	printf("Filename is same\n");
+	// 	return 0;
+	// }
+
+	const char* fn = &opath[1];
+	load_directory();
+	int file_id = find_dir_entry(fn);
+	if(file_id < 0){
+		// printf("No such file to rename: %s\n", fn);
+		return -ENOENT;
+	}
+
+	dir_entry* file_de = index2dir_entry(file_id);
+	strncpy(file_de->name, &npath[1], FS_NAME_LEN);
+	save_directory();
+	printf("Renamed \"%s\" to \"%s\" ", file_de->name, &npath[1]);
+	fflush(stdout);
   return 0; // reports success, but does nothing
 }
 
