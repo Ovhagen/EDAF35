@@ -149,19 +149,39 @@ static int do_read( const char *path, char *buffer, size_t size, off_t offset, s
 	dir_entry* de = index2dir_entry(di);
 	unsigned bid = de->first_block;
 
-  char bcache[BLOCK_SIZE];
-	// ... //
-  // reads the block into the cache
-  readBlock(bid, bcache);
-  // cannot read all maybe?
-  size_t rsize = min(size, BLOCK_SIZE);
-	// ... //
-
-  // we now fill the buffer with this block contents
   // TODO: [READ_OFFSET] account for the offset! May need to traverse the blocks of this file
 	// until the block holding the right offset. Have a look at do_write.
 
-	memcpy( buffer, bcache, rsize );
+	// load the block map
+	unsigned short* bmap = load_blockmap();
+
+
+	// first figure out where the write starts (offset in blocks)
+	unsigned short blkoffs = offset/BLOCK_SIZE;
+	// offset within that block
+	unsigned short byteoffs = offset%BLOCK_SIZE;
+
+	while(blkoffs) {
+		// not yet in the right block.
+		if(bmap[bid] != EOF_BLOCK) {
+			// follow the link
+			bid = bmap[bid];
+		} else {
+			printf("File shorter than %d bytes\n", offset);
+			return -1;
+		}
+		blkoffs--;
+	}
+
+	// we now fill the buffer with this block contents
+	char bcache[BLOCK_SIZE];
+	// ... //
+	// reads the block into the cache
+	readBlock(bid, bcache);
+	// cannot read all maybe?
+	size_t rsize = min(size, BLOCK_SIZE-byteoffs);
+
+	memcpy(buffer, bcache+byteoffs, rsize );
 
   // how much did we read?
 	return rsize;
