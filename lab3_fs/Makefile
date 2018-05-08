@@ -8,6 +8,9 @@ build: $(FILESYSTEM_FILES)
 	@echo 'To Mount: ./ssfs -f [mount point]'
 	@echo 'For more debug information, run with -d as well.'
 
+preproc: $(FILESYSTEM_FILES)
+		$(COMPILER) $(FILESYSTEM_FILES) -E `pkg-config fuse --cflags --libs` > ssfs.text
+
 tools: $(FORMAT_FILES) $(INFO_FILES)
 	$(COMPILER) $(FORMAT_FILES) -o format_myfs
 	$(COMPILER) $(INFO_FILES) -o info_myfs

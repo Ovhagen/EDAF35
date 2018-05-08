@@ -205,6 +205,7 @@ static int do_write( const char *path, const char *buffer, size_t size, off_t of
 			}
 			// update the size of the file
 			de->size_bytes = offset + size;
+			// set last modification time to current time
 			de->modtime = time( NULL );
 
 			// flush back the directory, since the file info changed
@@ -297,7 +298,6 @@ static int do_utimens(const char *path, const struct timespec tv[2]) {
 // space leaking from the disk.
 static int do_truncate(const char *path, off_t offset) {
   printf("--> Trying to truncate %s, %lld\n", path, offset);
-
   // locate file
 	// skip the "/" in the begining
 	const char* fn = &path[1];
@@ -324,21 +324,75 @@ static int do_truncate(const char *path, off_t offset) {
 		// save block map
 
 		// printf("Attempting to truncate the file\n");
-		// unsigned short *bmap = load_blockmap();
-		// while(de->first_block != EOF_BLOCK) {
-		// 	unsigned short next_block = freeBlock(bmap, de->first_block);
-		// 	de->first_block = bmap[next_block];
-		// }
-		// save_blockmap();
+		// load the block map
+		load_blockmap();
+		// first figure out where the trunc starts (offset in blocks)
+
+		while(de->first_block != EOF_BLOCK) {
+			de->first_block = free_block(de->first_block);
+		}
+		save_blockmap();
 		// printf("Truncated the file\n");
 
 		// for now just cut loose all blocks! block leak!
-		de->first_block = EOF_BLOCK;
+		// de->first_block = EOF_BLOCK;
 		// must save directory changes to disk!
 		save_directory();
 
 	}
 	return 0;
+}
+
+// TODO: [REMOVE] implement this!
+static int do_unlink(const char *path) {
+  printf("--> Trying to remove %s\n", path);
+
+	load_directory();
+
+	// Find last file entry to move into emptied file space
+	int to_move_id = find_last_occupied_dir_entry();
+	short to_move = 1;
+	if(to_move_id < 0){
+		to_move = 0;
+	}
+
+	const char* fn = &path[1];
+	int file_id = find_dir_entry(fn);
+	if(file_id < 0){
+		return -ENOENT;
+	}
+
+	do_truncate(path, 0);
+
+	dir_entry* rm_file_de = index2dir_entry(file_id);
+	dir_entry* mv_file_de;
+
+	printf("File to remove: %d, File to replace with: %d\n", file_id, to_move_id);
+
+	if(to_move && to_move_id != file_id){
+		mv_file_de = index2dir_entry(to_move_id);
+
+		// Move dir_entry from last occupied dir_entry to evicted files place
+		// to ensure no gaps in dir_entry structure
+		strncpy(rm_file_de->name, mv_file_de->name, FS_NAME_LEN);
+		rm_file_de->mode = mv_file_de->mode;
+		rm_file_de->size_bytes = mv_file_de->size_bytes;
+		rm_file_de->first_block = mv_file_de->first_block;
+		rm_file_de->modtime = mv_file_de->modtime;
+
+		// Remove now duplicate dir_entry from file system
+	} else {
+			mv_file_de = rm_file_de;
+	}
+	mv_file_de->name[0] = 0;
+	mv_file_de->mode = 0;
+	mv_file_de->size_bytes = 0;
+	mv_file_de->first_block = EOF_BLOCK;
+	mv_file_de->modtime = 0;
+
+	save_directory();
+
+  return 0; // reports success, but does nothing
 }
 
 // TODO: [RENAME] implement this!
@@ -349,25 +403,29 @@ static int do_rename(const char *opath, const char *npath) {
 	// 	return 0;
 	// }
 
-	const char* fn = &opath[1];
 	load_directory();
-	int file_id = find_dir_entry(fn);
-	if(file_id < 0){
+
+	// TODO REMOVE TARGET FILE IF IT EXISTS
+	const char* new_fn = &npath[1];
+	int new_file_id = find_dir_entry(new_fn);
+	printf("------------------------------------------New file id is: %d\n", new_file_id);
+	if(new_file_id > 0){
+		do_unlink(npath);
+	}
+
+	const char* old_fn = &opath[1];
+	int old_file_id = find_dir_entry(old_fn);
+	if(old_file_id < 0){
 		// printf("No such file to rename: %s\n", fn);
 		return -ENOENT;
 	}
 
-	dir_entry* file_de = index2dir_entry(file_id);
+
+	dir_entry* file_de = index2dir_entry(old_file_id);
 	strncpy(file_de->name, &npath[1], FS_NAME_LEN);
 	save_directory();
 	printf("Renamed \"%s\" to \"%s\" ", &opath[1], &npath[1]);
 	fflush(stdout);
-  return 0; // reports success, but does nothing
-}
-
-// TODO: [REMOVE] implement this!
-static int do_unlink(const char *path) {
-  printf("--> Trying to remove %s\n", path);
   return 0; // reports success, but does nothing
 }
 
