@@ -360,7 +360,7 @@ static int do_rename(const char *opath, const char *npath) {
 	dir_entry* file_de = index2dir_entry(file_id);
 	strncpy(file_de->name, &npath[1], FS_NAME_LEN);
 	save_directory();
-	printf("Renamed \"%s\" to \"%s\" ", file_de->name, &npath[1]);
+	printf("Renamed \"%s\" to \"%s\" ", &opath[1], &npath[1]);
 	fflush(stdout);
   return 0; // reports success, but does nothing
 }
