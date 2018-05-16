@@ -61,6 +61,10 @@ static size_t rewrite_instr(pid_t child, uint32_t start, size_t size, instr_tabl
 		 *
 		 */
 
+		instr = ptrace(PTRACE_PEEKTEXT, child, addr, NULL);
+
+		//ptrace(PTRACE_POKETEXT, child, addr, 0*sizeof(instr));
+
 		if (errno != 0)
 			error("ptrace failed");
 
