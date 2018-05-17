@@ -63,14 +63,13 @@ static size_t rewrite_instr(pid_t child, uint32_t start, size_t size, instr_tabl
 
 		instr = ptrace(PTRACE_PEEKTEXT, child, addr, NULL);
 
-		//ptrace(PTRACE_POKETEXT, child, addr, 0*sizeof(instr));
-
 		if (errno != 0)
 			error("ptrace failed");
 
 		if (instr_primary(instr) == PO_X
 			&& instr_field(instr, 21, 10) == EO_DIVW) {
 			install_instr(table, addr, instr);
+			ptrace(PTRACE_POKETEXT, child, addr, 0);
 			n += 1;
 		}
 	}
@@ -153,8 +152,7 @@ int main(int argc, char** argv)
 	if (child == 0) {
 		pr("child is %d\n", getpid());
 
-		long res = ptrace(PTRACE_TRACEME, 0, NULL, NULL); //Zero for parent to be tracer
-		if (res != 0)
+		if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) != 0)
 			error("ptrace failed in child");
 
 		execve(argv[1], argv+1, NULL);
@@ -178,8 +176,7 @@ int main(int argc, char** argv)
 	fprintf(stderr, "%zu divw instr in child program\n", n);
 
 	for (;;) {
-    long res = ptrace (PTRACE_CONT, child, NULL, 0);
-    if (res != 0)
+    if (ptrace (PTRACE_CONT, child, NULL, 0) != 0)
       error("ptrace failed in child");
 
 		c = waitpid(child, &status, 0);
@@ -195,16 +192,35 @@ int main(int argc, char** argv)
 
 		pr("parent found stopped child\n");
 
-		regs.nip = 0; // MODIFY!
+		// regs.nip = 0; // MODIFY!
+		if(ptrace(PTRACE_GETREGS, child, NULL, &regs) != 0) {
+			error("ptrace failed in child when fetching registers");
+		}
 
 		addr = regs.nip;
 
-		instr = ~0; // MODIFY!
+		pr("Addr: %d\n", addr);
+
+		instr = ptrace(PTRACE_PEEKTEXT, child, addr, NULL); // MODIFY!
 
 		if (instr == 0
 			&& (instr = lookup_instr(table, addr)) != 0
 			&& instr_primary(instr) == PO_X
 			&& instr_field(instr, 21, 10) == EO_DIVW) {
+
+			if(ptrace(PTRACE_POKETEXT, child, addr, instr) != 0){
+				error("ptrace failed in child when rewriting instruction");
+			}
+
+			if(ptrace(PTRACE_SINGLESTEP, child, NULL, NULL) != 0){
+				error("ptrace failed in child when singlestepping");
+			}
+
+			waitpid(child, &status, 0);
+
+			if(ptrace(PTRACE_POKETEXT, child, addr, 0) != 0){
+				error("ptrace failed in child when rewriting instruction");
+			}
 
 			ra = instr_field(instr, 11, 5);
 			rb = instr_field(instr, 16, 5);
@@ -217,6 +233,7 @@ int main(int argc, char** argv)
 
 			ndivw += 1;
 		}
+
 	}
 
 	free_instr_table(table);

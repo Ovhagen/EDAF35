@@ -7,12 +7,15 @@ volatile int	i;
 int main()
 {
 	a += a / b;
+	printf("first: %d\n", a);
 	b -= a / b;
-
-	for (i = 0; i < 2; i += 1)
+	printf("second: %d\n", b);
+	for (i = 0; i < 2; i += 1){
 		a *= a / b;
+		printf("loop: %d\n", a);
+	}
 
-	printf("goodbye\n");
+	printf("\ngoodbye\n");
 
 	return 0;
 }
